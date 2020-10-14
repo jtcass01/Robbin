@@ -8,11 +8,12 @@ import dateutil.relativedelta
 from PyQt5.QtCore import Qt, QMetaObject, QCoreApplication
 from PyQt5.QtGui import QFont, QColor, QFontMetrics
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QComboBox, QCheckBox, \
-    QPushButton, QSizePolicy, QStatusBar, QApplication, QGridLayout, QTextEdit
+                            QPushButton, QSizePolicy, QStatusBar, QApplication, QGridLayout, QTextEdit
 from qdarkstyle import load_stylesheet
 import pyqtgraph as pg
 
-from utilities.FeatureEngineering import chande_momentum_oscillator, WilliamsR, CMO, MACD, ROC, WMA, HMA, TRIX, CCI, DPO, CMF, ADX, ForceIndex
+from utilities.FeatureEngineering import chande_momentum_oscillator, WilliamsR, CMO, MACD, ROC, WMA, HMA, TRIX, \
+                                         CCI, DPO, CMF, ADX, ForceIndex
 from MarketInterfaces.MarketDataInterface import retrieve_yahoo_fin_stock_data
 
 from ta.momentum import rsi, wr, roc
@@ -56,6 +57,8 @@ class Ui_StockAnalysisTool(QMainWindow):
             'green': QColor(0, 255, 0, 255),
             'red': QColor(255, 0, 0, 255)
         }
+        self.robinhood_account_name = ""
+        self.robinhood_account_password = ""
         self.rsi_n = 14
         self.cmo_n = 7
         self.macd_slow = 26
@@ -98,7 +101,11 @@ class Ui_StockAnalysisTool(QMainWindow):
         self.stock_selection_layout = None
         self.stock_label = None
         self.stock_combo = None
+        self.robinhood_account_name_textedit = None
+        self.robinhood_password_textedit = None
+        self.robinhood_login_button = None
         self.top_h_divider = None
+        self.second_from_top_h_divider = None
         self.momentum_indicator_label = None
         self.momentum_indicator_layout = None
         self.rsi_cb = None
@@ -209,8 +216,34 @@ class Ui_StockAnalysisTool(QMainWindow):
         self.main_v_divider.setFrameShadow(QFrame.Sunken)
         self.main_v_divider.setObjectName("main_v_divider")
         self.display_layout.addWidget(self.main_v_divider)
+
         self.options_layout = QVBoxLayout()
         self.options_layout.setObjectName("options_layout")
+
+        robinhood_account_layout = QHBoxLayout()
+        robinhood_account_name_label = QLabel(self.central_widget)
+        robinhood_account_name_label.setText("Robinhood Account:")
+        self.robinhood_account_name_textedit = QTextEdit()
+        robinhood_account_layout.addWidget(robinhood_account_name_label)
+        robinhood_account_layout.addWidget(self.robinhood_account_name_textedit)
+        self.options_layout.addLayout(robinhood_account_layout)
+        robinhood_password_layout = QHBoxLayout()
+        robinhood_account_password_label = QLabel(self.central_widget)
+        robinhood_account_password_label.setText("Robinhood Password:")
+        self.robinhood_password_textedit = QTextEdit()
+        robinhood_password_layout.addWidget(robinhood_account_password_label)
+        robinhood_password_layout.addWidget(self.robinhood_password_textedit)
+        self.options_layout.addLayout(robinhood_password_layout)
+        self.robinhood_login_button = QPushButton()
+        self.robinhood_login_button.setObjectName("robinhood_login_button")
+        self.options_layout.addWidget(self.robinhood_login_button)
+
+        self.top_h_divider = QFrame(self.central_widget)
+        self.top_h_divider.setFrameShape(QFrame.HLine)
+        self.top_h_divider.setFrameShadow(QFrame.Sunken)
+        self.top_h_divider.setObjectName("top_h_divider")
+        self.options_layout.addWidget(self.top_h_divider)
+
         self.source_selection_layout = QHBoxLayout()
         self.source_selection_layout.setObjectName("source_selection_layout")
         self.source_label = QLabel(self.central_widget)
@@ -233,11 +266,12 @@ class Ui_StockAnalysisTool(QMainWindow):
         self.stock_combo.addItems(self.valid_stock_tickers)
         self.stock_selection_layout.addWidget(self.stock_combo)
         self.options_layout.addLayout(self.stock_selection_layout)
-        self.top_h_divider = QFrame(self.central_widget)
-        self.top_h_divider.setFrameShape(QFrame.HLine)
-        self.top_h_divider.setFrameShadow(QFrame.Sunken)
-        self.top_h_divider.setObjectName("top_h_divider")
-        self.options_layout.addWidget(self.top_h_divider)
+
+        self.second_from_top_h_divider = QFrame(self.central_widget)
+        self.second_from_top_h_divider.setFrameShape(QFrame.HLine)
+        self.second_from_top_h_divider.setFrameShadow(QFrame.Sunken)
+        self.second_from_top_h_divider.setObjectName("second_from_top_h_divider")
+        self.options_layout.addWidget(self.second_from_top_h_divider)
 
         self.momentum_indicator_label = QLabel(self.central_widget)
         self.momentum_indicator_label.setObjectName("momentum_indicator_label")
@@ -373,9 +407,28 @@ class Ui_StockAnalysisTool(QMainWindow):
             lambda: Ui_StockAnalysisTool.Callbacks.volume_data_cb_pressed(stock_analysis_tool=self,
                                                                           cb=self.volume_data_cb)
         )
+        self.robinhood_account_name_textedit.textChanged.connect(
+            lambda: Ui_StockAnalysisTool.Callbacks.robinhood_account_name_text_changed(
+                stock_analysis_tool=self,
+                robinhood_account_name_textedit=self.robinhood_account_name_textedit
+            )
+        )
+        self.robinhood_password_textedit.textChanged.connect(
+            lambda: Ui_StockAnalysisTool.Callbacks.robinhood_password_text_changed(
+                stock_analysis_tool=self,
+                robinhood_password_textedit=self.robinhood_password_textedit
+            )
+        )
+        self.robinhood_login_button.clicked.connect(
+            lambda: Ui_StockAnalysisTool.Callbacks.robinhood_login(
+                robinhood_login_name=self.robinhood_account_name,
+                robinhood_password=self.robinhood_account_password
+            )
+        )
         self.rsi_cb.clicked.connect(
             lambda: Ui_StockAnalysisTool.Callbacks.rsi_cb_pressed(stock_analysis_tool=self,
-                                                                  cb=self.rsi_cb))
+                                                                  cb=self.rsi_cb)
+        )
         self.rsi_time_frame_text.textChanged.connect(
             lambda: Ui_StockAnalysisTool.Callbacks.rsi_time_frame_text_changed(
                 stock_analysis_tool=self,
@@ -426,7 +479,7 @@ class Ui_StockAnalysisTool(QMainWindow):
         """
         _translate = QCoreApplication.translate
         self.setWindowTitle(_translate("StockAnalysisTool_Ui", "Stock Analysis Tool"))
-        self.title_label.setText(_translate("StockAnalysisTool_Ui", "ASTRA Stock Analysis Tool"))
+        self.title_label.setText(_translate("StockAnalysisTool_Ui", "Robbin Stock Analysis Tool"))
         self.save_fig_btn.setText(_translate("StockAnalysisTool_Ui", "Export Graph"))
         self.source_label.setText(_translate("StockAnalysisTool_Ui", "Source:"))
         self.source_combo.setItemText(0, _translate("StockAnalysisTool_Ui", "yahoo_fin"))
@@ -440,6 +493,7 @@ class Ui_StockAnalysisTool(QMainWindow):
         self.close_data_cb.setText(_translate("StockAnalysisTool_Ui", "close"))
         self.adjclose_data_cb.setText(_translate("StockAnalysisTool_Ui", "adjclose"))
         self.volume_data_cb.setText(_translate("StockAnalysisTool_Ui", "volume"))
+        self.robinhood_login_button.setText(_translate("StockAnalysisTool_Ui", "Login"))
         self.rsi_cb.setText(_translate("StockAnalysisTool_Ui", "RSI"))
         self.williams_r_cb.setText(_translate("StockAnalysisTool_Ui", "WilliamsR"))
         self.cmo_cb.setText(_translate("StockAnalysisTool_Ui", "CMO"))
@@ -629,6 +683,23 @@ class Ui_StockAnalysisTool(QMainWindow):
                 checked=cb.isChecked(),
                 df_column_name='volume'
             )
+
+        @staticmethod
+        def robinhood_account_name_text_changed(stock_analysis_tool: QMainWindow,
+                                                robinhood_account_name_textedit: QTextEdit) -> None:
+            text = robinhood_account_name_textedit.toPlainText()
+            stock_analysis_tool.robinhood_account_name = text
+
+        @staticmethod
+        def robinhood_password_text_changed(stock_analysis_tool: QMainWindow,
+                                            robinhood_password_textedit: QTextEdit) -> None:
+            text = robinhood_password_textedit.toPlainText()
+            stock_analysis_tool.robinhood_password = text
+
+        @staticmethod
+        def robinhood_login(robinhood_account_name: str,
+                            robinhood_password: str) -> None:
+            pass
 
         @staticmethod
         def rsi_cb_pressed(stock_analysis_tool: QMainWindow,
